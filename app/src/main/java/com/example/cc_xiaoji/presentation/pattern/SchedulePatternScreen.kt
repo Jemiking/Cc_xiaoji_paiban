@@ -4,8 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -13,11 +15,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.cc_xiaoji.domain.model.SchedulePattern
 import com.example.cc_xiaoji.domain.model.Shift
+import com.example.cc_xiaoji.presentation.components.DatePickerDialog
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -25,33 +28,36 @@ import java.time.format.TextStyle
 import java.util.Locale
 
 /**
- * 排班模式界面
- * 支持多种排班模式：单次、周循环、轮班、自定义
+ * 批量排班界面
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SchedulePatternScreen(
-    onNavigateBack: () -> Unit,
+    onBack: () -> Unit,
     viewModel: SchedulePatternViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val shifts by viewModel.shifts.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsState()
+    val shifts by viewModel.shifts.collectAsState()
+    
+    // 日期选择器状态
+    var showStartDatePicker by remember { mutableStateOf(false) }
+    var showEndDatePicker by remember { mutableStateOf(false) }
     
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("批量排班") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
                 },
                 actions = {
-                    TextButton(
-                        onClick = {
-                            viewModel.createSchedules()
-                        },
-                        enabled = uiState.canCreate
+                    // 创建按钮
+                    Button(
+                        onClick = { viewModel.createSchedules() },
+                        enabled = uiState.canCreate && !uiState.isLoading,
+                        modifier = Modifier.padding(end = 16.dp)
                     ) {
                         Text("创建")
                     }
@@ -62,17 +68,18 @@ fun SchedulePatternScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(vertical = 16.dp)
         ) {
             // 日期范围选择
             item {
                 DateRangeSection(
                     startDate = uiState.startDate,
                     endDate = uiState.endDate,
-                    onStartDateChange = viewModel::updateStartDate,
-                    onEndDateChange = viewModel::updateEndDate
+                    onStartDateClick = { showStartDatePicker = true },
+                    onEndDateClick = { showEndDatePicker = true }
                 )
             }
             
@@ -117,10 +124,11 @@ fun SchedulePatternScreen(
                 }
                 PatternType.CUSTOM -> {
                     item {
-                        Text(
-                            "自定义模式暂未实现",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        CustomPatternSection(
+                            shifts = shifts,
+                            startDate = uiState.startDate,
+                            customPattern = uiState.customPattern,
+                            onPatternChange = viewModel::updateCustomPattern
                         )
                     }
                 }
@@ -138,16 +146,32 @@ fun SchedulePatternScreen(
         }
     }
     
-    // 显示成功消息
+    // 开始日期选择器
+    DatePickerDialog(
+        showDialog = showStartDatePicker,
+        initialDate = uiState.startDate,
+        onDateSelected = {
+            viewModel.updateStartDate(it)
+            showStartDatePicker = false
+        },
+        onDismiss = { showStartDatePicker = false }
+    )
+    
+    // 结束日期选择器
+    DatePickerDialog(
+        showDialog = showEndDatePicker,
+        initialDate = uiState.endDate,
+        onDateSelected = {
+            viewModel.updateEndDate(it)
+            showEndDatePicker = false
+        },
+        onDismiss = { showEndDatePicker = false }
+    )
+    
+    // 显示成功状态
     if (uiState.isSuccess) {
         LaunchedEffect(Unit) {
-            onNavigateBack()
-        }
-    }
-    
-    // 显示错误消息
-    uiState.errorMessage?.let { error: String ->
-        LaunchedEffect(error) {
+            onBack()
             // 这里可以显示 Snackbar
         }
     }
@@ -160,8 +184,8 @@ fun SchedulePatternScreen(
 private fun DateRangeSection(
     startDate: LocalDate,
     endDate: LocalDate,
-    onStartDateChange: (LocalDate) -> Unit,
-    onEndDateChange: (LocalDate) -> Unit
+    onStartDateClick: () -> Unit,
+    onEndDateClick: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth()
@@ -186,7 +210,7 @@ private fun DateRangeSection(
                 DateSelector(
                     label = "开始日期",
                     date = startDate,
-                    onDateChange = onStartDateChange,
+                    onClick = onStartDateClick,
                     modifier = Modifier.weight(1f)
                 )
                 
@@ -195,7 +219,7 @@ private fun DateRangeSection(
                 DateSelector(
                     label = "结束日期",
                     date = endDate,
-                    onDateChange = onEndDateChange,
+                    onClick = onEndDateClick,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -210,14 +234,12 @@ private fun DateRangeSection(
 private fun DateSelector(
     label: String,
     date: LocalDate,
-    onDateChange: (LocalDate) -> Unit,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     OutlinedCard(
         modifier = modifier,
-        onClick = {
-            // TODO: 显示日期选择对话框
-        }
+        onClick = onClick
     ) {
         Column(
             modifier = Modifier.padding(12.dp)
@@ -259,19 +281,37 @@ private fun PatternTypeSection(
             )
             
             PatternType.values().forEach { type ->
-                FilterChip(
-                    selected = selectedType == type,
+                OutlinedCard(
                     onClick = { onTypeChange(type) },
-                    label = { Text(type.displayName) },
                     modifier = Modifier.fillMaxWidth()
-                )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            type.displayName,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        if (selectedType == type) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = "已选择",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
             }
         }
     }
 }
 
 /**
- * 单次排班配置
+ * 单次排班配置部分
  */
 @Composable
 private fun SinglePatternSection(
@@ -297,7 +337,7 @@ private fun SinglePatternSection(
             shifts.forEach { shift ->
                 ShiftSelectionItem(
                     shift = shift,
-                    isSelected = selectedShift?.id == shift.id,
+                    isSelected = shift == selectedShift,
                     onSelect = { onShiftSelect(shift) }
                 )
             }
@@ -306,7 +346,7 @@ private fun SinglePatternSection(
 }
 
 /**
- * 周循环排班配置
+ * 周循环配置部分
  */
 @Composable
 private fun WeeklyPatternSection(
@@ -324,7 +364,7 @@ private fun WeeklyPatternSection(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                "周循环设置",
+                "周循环排班",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -344,7 +384,7 @@ private fun WeeklyPatternSection(
 }
 
 /**
- * 轮班模式配置
+ * 轮班配置部分
  */
 @Composable
 private fun RotationPatternSection(
@@ -370,30 +410,27 @@ private fun RotationPatternSection(
             )
             
             Text(
-                "选择轮班顺序",
+                "请按顺序选择班次：",
                 style = MaterialTheme.typography.bodyMedium
             )
             
             shifts.forEach { shift ->
-                val isSelected = selectedShifts.contains(shift.id)
-                val position = if (isSelected) selectedShifts.indexOf(shift.id) + 1 else null
-                
+                val position = selectedShifts.indexOf(shift.id).takeIf { it >= 0 }?.plus(1)
                 ShiftSelectionItem(
                     shift = shift,
-                    isSelected = isSelected,
+                    isSelected = shift.id in selectedShifts,
                     position = position,
                     onSelect = {
-                        val newList = if (isSelected) {
-                            selectedShifts - shift.id
+                        if (shift.id in selectedShifts) {
+                            onShiftsChange(selectedShifts - shift.id)
                         } else {
-                            selectedShifts + shift.id
+                            onShiftsChange(selectedShifts + shift.id)
                         }
-                        onShiftsChange(newList)
                     }
                 )
             }
             
-            Divider()
+            HorizontalDivider()
             
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -584,3 +621,157 @@ private fun WeekDayShiftSelector(
     }
 }
 
+/**
+ * 自定义模式配置部分
+ */
+@Composable
+private fun CustomPatternSection(
+    shifts: List<Shift>,
+    startDate: LocalDate,
+    customPattern: List<Long?>,
+    onPatternChange: (Int, Long?) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                "自定义排班模式",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            
+            if (customPattern.isEmpty()) {
+                Text(
+                    "请选择日期范围后自动生成配置",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 400.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    itemsIndexed(customPattern) { index, shiftId ->
+                        val date = startDate.plusDays(index.toLong())
+                        CustomDayShiftSelector(
+                            date = date,
+                            shifts = shifts,
+                            selectedShiftId = shiftId,
+                            onShiftSelect = { id -> onPatternChange(index, id) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 自定义模式的单日班次选择器
+ */
+@Composable
+private fun CustomDayShiftSelector(
+    date: LocalDate,
+    shifts: List<Shift>,
+    selectedShiftId: Long?,
+    onShiftSelect: (Long?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedShift = shifts.find { it.id == selectedShiftId }
+    
+    OutlinedCard(
+        onClick = { expanded = true },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    date.format(DateTimeFormatter.ofPattern("MM月dd日")),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.CHINA),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            if (selectedShift != null) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(16.dp)
+                            .background(
+                                Color(selectedShift.color),
+                                shape = MaterialTheme.shapes.small
+                            )
+                    )
+                    Text(
+                        selectedShift.name,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            } else {
+                Text(
+                    "休息",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text("休息") },
+                onClick = {
+                    onShiftSelect(null)
+                    expanded = false
+                }
+            )
+            
+            shifts.forEach { shift ->
+                DropdownMenuItem(
+                    text = {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .background(
+                                        Color(shift.color),
+                                        shape = MaterialTheme.shapes.small
+                                    )
+                            )
+                            Text(shift.name)
+                        }
+                    },
+                    onClick = {
+                        onShiftSelect(shift.id)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}

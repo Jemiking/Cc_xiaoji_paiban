@@ -54,6 +54,11 @@ class SchedulePatternViewModel @Inject constructor(
                 endDate = if (date.isAfter(state.endDate)) date else state.endDate
             )
         }
+        
+        // 如果是自定义模式，重新初始化
+        if (_uiState.value.patternType == PatternType.CUSTOM) {
+            initializeCustomPattern()
+        }
     }
     
     /**
@@ -65,6 +70,11 @@ class SchedulePatternViewModel @Inject constructor(
                 endDate = if (date.isBefore(state.startDate)) state.startDate else date
             )
         }
+        
+        // 如果是自定义模式，重新初始化
+        if (_uiState.value.patternType == PatternType.CUSTOM) {
+            initializeCustomPattern()
+        }
     }
     
     /**
@@ -72,6 +82,11 @@ class SchedulePatternViewModel @Inject constructor(
      */
     fun updatePatternType(type: PatternType) {
         _uiState.update { it.copy(patternType = type) }
+        
+        // 当切换到自定义模式时，初始化模式数据
+        if (type == PatternType.CUSTOM && _uiState.value.customPattern.isEmpty()) {
+            initializeCustomPattern()
+        }
     }
     
     /**
@@ -107,6 +122,39 @@ class SchedulePatternViewModel @Inject constructor(
     }
     
     /**
+     * 初始化自定义模式
+     */
+    fun initializeCustomPattern() {
+        val state = _uiState.value
+        val days = java.time.temporal.ChronoUnit.DAYS.between(state.startDate, state.endDate).toInt() + 1
+        _uiState.update { 
+            it.copy(customPattern = List(days) { null })
+        }
+    }
+    
+    /**
+     * 更新自定义模式中某一天的班次
+     */
+    fun updateCustomPattern(index: Int, shiftId: Long?) {
+        _uiState.update { state ->
+            val newPattern = state.customPattern.toMutableList()
+            if (index in newPattern.indices) {
+                newPattern[index] = shiftId
+            }
+            state.copy(customPattern = newPattern)
+        }
+    }
+    
+    /**
+     * 清空自定义模式
+     */
+    fun clearCustomPattern() {
+        _uiState.update { 
+            it.copy(customPattern = emptyList())
+        }
+    }
+    
+    /**
      * 创建排班
      */
     fun createSchedules() {
@@ -139,7 +187,7 @@ class SchedulePatternViewModel @Inject constructor(
                         SchedulePattern.Weekly(
                             startDate = state.startDate,
                             endDate = state.endDate,
-                            weekPattern = state.weekPattern.filterValues { it != null } as Map<DayOfWeek, Long>
+                            weekPattern = state.weekPattern.filterValues { it != null }.mapValues { it.value!! }
                         )
                     }
                     
@@ -156,7 +204,14 @@ class SchedulePatternViewModel @Inject constructor(
                     }
                     
                     PatternType.CUSTOM -> {
-                        throw IllegalStateException("自定义模式暂未实现")
+                        if (state.customPattern.isEmpty()) {
+                            throw IllegalStateException("请配置自定义排班模式")
+                        }
+                        SchedulePattern.Custom(
+                            startDate = state.startDate,
+                            endDate = state.endDate,
+                            pattern = state.customPattern
+                        )
                     }
                 }
                 
@@ -196,6 +251,9 @@ data class SchedulePatternUiState(
     val rotationShifts: List<Long> = emptyList(),
     val restDays: Int = 0,
     
+    // 自定义模式
+    val customPattern: List<Long?> = emptyList(),
+    
     // 状态
     val isLoading: Boolean = false,
     val isSuccess: Boolean = false,
@@ -209,6 +267,6 @@ data class SchedulePatternUiState(
             PatternType.SINGLE -> selectedShift != null
             PatternType.WEEKLY -> weekPattern.values.any { it != null }
             PatternType.ROTATION -> rotationShifts.isNotEmpty()
-            PatternType.CUSTOM -> false
+            PatternType.CUSTOM -> customPattern.isNotEmpty()
         }
 }

@@ -3,12 +3,15 @@ package com.example.cc_xiaoji.presentation.export
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.cc_xiaoji.data.local.dao.ExportHistoryDao
+import com.example.cc_xiaoji.data.local.entity.ExportHistoryEntity
 import com.example.cc_xiaoji.domain.usecase.ExportScheduleDataUseCase
 import com.example.cc_xiaoji.presentation.statistics.TimeRange
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
@@ -25,7 +28,8 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class ExportViewModel @Inject constructor(
-    private val exportScheduleDataUseCase: ExportScheduleDataUseCase
+    private val exportScheduleDataUseCase: ExportScheduleDataUseCase,
+    private val exportHistoryDao: ExportHistoryDao
 ) : ViewModel() {
     
     // UI状态
@@ -148,6 +152,14 @@ class ExportViewModel @Inject constructor(
     fun deleteExportFile(file: File) {
         viewModelScope.launch {
             try {
+                // 从数据库中删除记录
+                val historyList = exportHistoryDao.getAllExportHistory().first()
+                val entity = historyList.find { it.filePath == file.absolutePath }
+                entity?.let {
+                    exportHistoryDao.deleteExportHistory(it.id)
+                }
+                
+                // 删除实际文件
                 if (file.exists()) {
                     file.delete()
                 }
@@ -157,8 +169,6 @@ class ExportViewModel @Inject constructor(
                         exportHistory = state.exportHistory.filter { it.file != file }
                     )
                 }
-                
-                saveExportHistory()
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(errorMessage = "删除文件失败: ${e.message}")
@@ -221,16 +231,59 @@ class ExportViewModel @Inject constructor(
      * 加载导出历史
      */
     private fun loadExportHistory() {
-        // TODO: 从本地存储加载导出历史
-        // 这里暂时使用空列表
-        _uiState.update { it.copy(exportHistory = emptyList()) }
+        viewModelScope.launch {
+            exportHistoryDao.getRecentExportHistory(20).collect { historyList ->
+                val exportInfoList = historyList.map { entity ->
+                    ExportInfo(
+                        file = File(entity.filePath),
+                        fileName = entity.fileName,
+                        format = ExportFormat.values().find { it.name == entity.format } ?: ExportFormat.CSV,
+                        exportTime = LocalDateTime.ofEpochSecond(entity.exportTime / 1000, 0, java.time.ZoneOffset.UTC)
+                    )
+                }
+                _uiState.update { it.copy(exportHistory = exportInfoList) }
+            }
+        }
     }
     
     /**
      * 保存导出历史
      */
     private fun saveExportHistory() {
-        // TODO: 保存导出历史到本地存储
+        viewModelScope.launch {
+            val (startDate, endDate) = getDateRange()
+            val currentState = _uiState.value
+            
+            // 创建新的导出历史记录
+            val exportHistory = ExportHistoryEntity(
+                fileName = currentState.exportedFile?.name ?: "",
+                filePath = currentState.exportedFile?.absolutePath ?: "",
+                format = currentState.exportFormat.name,
+                startDate = startDate.atStartOfDay().toEpochSecond(java.time.ZoneOffset.UTC) * 1000,
+                endDate = endDate.atStartOfDay().toEpochSecond(java.time.ZoneOffset.UTC) * 1000,
+                exportTime = System.currentTimeMillis(),
+                fileSize = currentState.exportedFile?.length(),
+                includeStatistics = currentState.includeStatistics,
+                includeActualTime = currentState.includeActualTime
+            )
+            
+            exportHistoryDao.insertExportHistory(exportHistory)
+        }
+    }
+    
+    /**
+     * 删除导出历史记录
+     */
+    fun deleteExportHistory(exportInfo: ExportInfo) {
+        viewModelScope.launch {
+            // 根据文件路径查找并删除对应的历史记录
+            exportHistoryDao.getAllExportHistory().collect { historyList ->
+                val entity = historyList.find { it.filePath == exportInfo.file.absolutePath }
+                entity?.let {
+                    exportHistoryDao.deleteExportHistory(it.id)
+                }
+            }
+        }
     }
 }
 

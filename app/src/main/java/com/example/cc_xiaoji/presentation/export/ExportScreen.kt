@@ -20,6 +20,7 @@ import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.cc_xiaoji.presentation.statistics.TimeRange
+import com.example.cc_xiaoji.presentation.components.DateRangePickerDialog
 import java.io.File
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -35,6 +36,20 @@ fun ExportScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    
+    // 日期选择器状态
+    var showDateRangePicker by remember { mutableStateOf(false) }
+    
+    // 日期范围选择器
+    DateRangePickerDialog(
+        showDialog = showDateRangePicker,
+        initialStartDate = uiState.customStartDate,
+        initialEndDate = uiState.customEndDate,
+        onDateRangeSelected = { start, end ->
+            viewModel.updateCustomDateRange(start, end)
+        },
+        onDismiss = { showDateRangePicker = false }
+    )
     
     // 文件分享启动器
     val shareFileLauncher = rememberLauncherForActivityResult(
@@ -67,7 +82,8 @@ fun ExportScreen(
                     customStartDate = uiState.customStartDate,
                     customEndDate = uiState.customEndDate,
                     onRangeChange = viewModel::updateTimeRange,
-                    onCustomDateChange = viewModel::updateCustomDateRange
+                    onCustomDateChange = viewModel::updateCustomDateRange,
+                    onCustomDateClick = { showDateRangePicker = true }
                 )
             }
             
@@ -171,7 +187,8 @@ private fun TimeRangeSection(
     customStartDate: LocalDate,
     customEndDate: LocalDate,
     onRangeChange: (TimeRange) -> Unit,
-    onCustomDateChange: (LocalDate, LocalDate) -> Unit
+    onCustomDateChange: (LocalDate, LocalDate) -> Unit,
+    onCustomDateClick: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth()
@@ -216,7 +233,8 @@ private fun TimeRangeSection(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedCard(
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        onClick = onCustomDateClick
                     ) {
                         Column(
                             modifier = Modifier.padding(12.dp),
@@ -237,7 +255,8 @@ private fun TimeRangeSection(
                     Text("至")
                     
                     OutlinedCard(
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        onClick = onCustomDateClick
                     ) {
                         Column(
                             modifier = Modifier.padding(12.dp),

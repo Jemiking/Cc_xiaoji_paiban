@@ -11,6 +11,7 @@ import com.example.cc_xiaoji.presentation.schedule.ScheduleEditScreen
 import com.example.cc_xiaoji.presentation.statistics.ScheduleStatisticsScreen
 import com.example.cc_xiaoji.presentation.export.ExportScreen
 import com.example.cc_xiaoji.presentation.settings.SettingsScreen
+import com.example.cc_xiaoji.presentation.settings.AboutScreen
 
 /**
  * 导航路由定义
@@ -25,6 +26,7 @@ sealed class Screen(val route: String) {
     object ScheduleStatistics : Screen("schedule_statistics")
     object Export : Screen("export")
     object Settings : Screen("settings")
+    object About : Screen("about")
 }
 
 /**
@@ -92,7 +94,7 @@ fun ScheduleNavHost(
         composable(Screen.SchedulePattern.route) {
             android.util.Log.d("ScheduleNavHost", "Navigating to SchedulePattern screen")
             SchedulePatternScreen(
-                onNavigateBack = {
+                onBack = {
                     navController.popBackStack()
                 }
             )
@@ -129,10 +131,19 @@ fun ScheduleNavHost(
                     navController.popBackStack()
                 },
                 onNavigateToAbout = {
-                    // TODO: 导航到关于页面
+                    navController.navigate(Screen.About.route)
                 },
                 onNavigateToShiftManage = {
                     navController.navigate(Screen.ShiftManage.route)
+                }
+            )
+        }
+        
+        // 关于页面
+        composable(Screen.About.route) {
+            AboutScreen(
+                onBack = {
+                    navController.popBackStack()
                 }
             )
         }

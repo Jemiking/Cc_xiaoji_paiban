@@ -52,4 +52,16 @@ interface ShiftDao {
      */
     @Query("SELECT * FROM shifts WHERE is_active = 1 ORDER BY created_at ASC LIMIT 3")
     suspend fun getDefaultShifts(): List<ShiftEntity>
+    
+    /**
+     * 获取所有班次（非Flow版本）
+     */
+    @Query("SELECT * FROM shifts WHERE is_active = 1 ORDER BY start_time ASC")
+    suspend fun getAllShiftsList(): List<ShiftEntity>
+    
+    /**
+     * 删除所有班次
+     */
+    @Query("DELETE FROM shifts")
+    suspend fun deleteAllShifts(): Int
 }

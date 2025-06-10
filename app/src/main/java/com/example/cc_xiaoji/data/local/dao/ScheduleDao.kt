@@ -98,6 +98,18 @@ interface ScheduleDao {
      */
     @Query("DELETE FROM schedules WHERE date >= :startDate AND date <= :endDate")
     suspend fun clearSchedulesByDateRange(startDate: Long, endDate: Long)
+    
+    /**
+     * 获取所有排班
+     */
+    @Query("SELECT * FROM schedules ORDER BY date ASC")
+    suspend fun getAllSchedules(): List<ScheduleEntity>
+    
+    /**
+     * 删除所有排班
+     */
+    @Query("DELETE FROM schedules")
+    suspend fun deleteAllSchedules(): Int
 }
 
 /**

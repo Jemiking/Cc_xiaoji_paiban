@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.cc_xiaoji.presentation.components.QuickShiftSelector
 import com.example.cc_xiaoji.presentation.viewmodel.CalendarViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -36,6 +37,9 @@ fun CalendarScreen(
     val schedules by viewModel.schedules.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
     val statistics by viewModel.monthlyStatistics.collectAsState()
+    val quickShifts by viewModel.quickShifts.collectAsState()
+    val quickSelectDate by viewModel.quickSelectDate.collectAsState()
+    val weekStartDay by viewModel.weekStartDay.collectAsState()
     
     android.util.Log.d("CalendarScreen", "CurrentYearMonth: $currentYearMonth, SchedulesCount: ${schedules.size}")
     
@@ -113,8 +117,12 @@ fun CalendarScreen(
                 yearMonth = currentYearMonth,
                 selectedDate = selectedDate,
                 schedules = schedules,
+                weekStartDay = weekStartDay,
                 onDateSelected = { date ->
                     viewModel.selectDate(date)
+                },
+                onDateLongClick = { date ->
+                    viewModel.showQuickSelector(date)
                 }
             )
         }
@@ -136,6 +144,27 @@ fun CalendarScreen(
         ) {
             CircularProgressIndicator()
         }
+    }
+    
+    // 快速选择对话框
+    quickSelectDate?.let { date ->
+        val currentSchedule = schedules.find { it.date == date }
+        QuickShiftSelector(
+            isVisible = true,
+            selectedDate = date,
+            quickShifts = quickShifts,
+            currentShift = currentSchedule?.shift,
+            onShiftSelected = { shift ->
+                viewModel.quickSetSchedule(date, shift)
+            },
+            onDismiss = {
+                viewModel.hideQuickSelector()
+            },
+            onNavigateToFullSelector = {
+                viewModel.hideQuickSelector()
+                onNavigateToScheduleEdit(date)
+            }
+        )
     }
 }
 

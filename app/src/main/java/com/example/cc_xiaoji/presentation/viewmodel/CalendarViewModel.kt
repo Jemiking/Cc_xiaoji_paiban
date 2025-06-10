@@ -4,11 +4,16 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.cc_xiaoji.domain.model.Schedule
 import com.example.cc_xiaoji.domain.model.ScheduleStatistics
+import com.example.cc_xiaoji.domain.model.Shift
+import com.example.cc_xiaoji.domain.usecase.CreateScheduleUseCase
 import com.example.cc_xiaoji.domain.usecase.GetMonthScheduleUseCase
+import com.example.cc_xiaoji.domain.usecase.GetQuickShiftsUseCase
 import com.example.cc_xiaoji.domain.usecase.GetScheduleStatisticsUseCase
+import com.example.cc_xiaoji.presentation.theme.ThemeManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
 import javax.inject.Inject
@@ -20,7 +25,10 @@ import javax.inject.Inject
 @HiltViewModel
 class CalendarViewModel @Inject constructor(
     private val getMonthScheduleUseCase: GetMonthScheduleUseCase,
-    private val getScheduleStatisticsUseCase: GetScheduleStatisticsUseCase
+    private val getScheduleStatisticsUseCase: GetScheduleStatisticsUseCase,
+    private val getQuickShiftsUseCase: GetQuickShiftsUseCase,
+    private val createScheduleUseCase: CreateScheduleUseCase,
+    private val themeManager: ThemeManager
 ) : ViewModel() {
     
     // 在属性初始化完成后，init块会在下面执行
@@ -47,6 +55,26 @@ class CalendarViewModel @Inject constructor(
     // 月度统计信息
     private val _monthlyStatistics = MutableStateFlow<ScheduleStatistics?>(null)
     val monthlyStatistics: StateFlow<ScheduleStatistics?> = _monthlyStatistics.asStateFlow()
+    
+    // 快速班次列表
+    val quickShifts: StateFlow<List<Shift>> = getQuickShiftsUseCase()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+    
+    // 快速选择对话框的日期
+    private val _quickSelectDate = MutableStateFlow<LocalDate?>(null)
+    val quickSelectDate: StateFlow<LocalDate?> = _quickSelectDate.asStateFlow()
+    
+    // 一周开始日
+    val weekStartDay: StateFlow<DayOfWeek> = themeManager.weekStartDay
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = DayOfWeek.MONDAY
+        )
     
     // UI状态
     private val _uiState = MutableStateFlow(CalendarUiState())
@@ -119,6 +147,59 @@ class CalendarViewModel @Inject constructor(
      */
     fun clearError() {
         _uiState.update { it.copy(errorMessage = null) }
+    }
+    
+    /**
+     * 显示快速选择对话框
+     */
+    fun showQuickSelector(date: LocalDate) {
+        _quickSelectDate.value = date
+    }
+    
+    /**
+     * 隐藏快速选择对话框
+     */
+    fun hideQuickSelector() {
+        _quickSelectDate.value = null
+    }
+    
+    /**
+     * 快速设置排班
+     */
+    fun quickSetSchedule(date: LocalDate, shift: Shift?) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            try {
+                if (shift != null) {
+                    // 创建新排班
+                    val schedule = Schedule(
+                        id = 0,
+                        date = date,
+                        shift = shift,
+                        note = ""
+                    )
+                    createScheduleUseCase.createOrUpdateSchedule(schedule)
+                } else {
+                    // 删除排班
+                    createScheduleUseCase.deleteSchedule(date)
+                }
+                
+                // 隐藏快速选择对话框
+                hideQuickSelector()
+                
+                // 刷新统计信息
+                loadMonthlyStatistics()
+                
+                _uiState.update { it.copy(isLoading = false) }
+            } catch (e: Exception) {
+                _uiState.update { 
+                    it.copy(
+                        isLoading = false, 
+                        errorMessage = "操作失败：${e.message}"
+                    )
+                }
+            }
+        }
     }
 }
 

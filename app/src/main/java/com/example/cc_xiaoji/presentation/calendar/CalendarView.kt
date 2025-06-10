@@ -1,7 +1,9 @@
 package com.example.cc_xiaoji.presentation.calendar
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -26,25 +28,34 @@ import java.util.Locale
 /**
  * 日历视图组件
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CalendarView(
     yearMonth: YearMonth,
     selectedDate: LocalDate?,
     schedules: List<Schedule>,
     onDateSelected: (LocalDate) -> Unit,
+    onDateLongClick: (LocalDate) -> Unit = {},
+    weekStartDay: DayOfWeek = DayOfWeek.MONDAY,
     modifier: Modifier = Modifier
 ) {
     android.util.Log.d("CalendarView", "Rendering calendar for: $yearMonth, schedules count: ${schedules.size}")
     
     val daysInMonth = yearMonth.lengthOfMonth()
     val firstDayOfMonth = yearMonth.atDay(1)
-    val firstDayOfWeek = firstDayOfMonth.dayOfWeek.value % 7 // 转换为从周日开始
+    
+    // 计算第一天相对于一周起始日的偏移量
+    val firstDayOffset = when (weekStartDay) {
+        DayOfWeek.SUNDAY -> firstDayOfMonth.dayOfWeek.value % 7 // 周日开始：周日=0
+        DayOfWeek.MONDAY -> (firstDayOfMonth.dayOfWeek.value - 1) % 7 // 周一开始：周一=0
+        else -> (firstDayOfMonth.dayOfWeek.value - 1) % 7 // 默认周一开始
+    }
     
     // 创建日历网格数据
-    val calendarDays = remember(yearMonth) {
+    val calendarDays = remember(yearMonth, weekStartDay) {
         val days = mutableListOf<LocalDate?>()
         // 添加月初的空白天数
-        repeat(firstDayOfWeek) {
+        repeat(firstDayOffset) {
             days.add(null)
         }
         // 添加当月所有天数
@@ -61,7 +72,7 @@ fun CalendarView(
     
     Column(modifier = modifier) {
         // 星期标题行
-        WeekDayHeader()
+        WeekDayHeader(weekStartDay = weekStartDay)
         
         // 日历网格
         LazyVerticalGrid(
@@ -77,7 +88,8 @@ fun CalendarView(
                         schedule = scheduleMap[date],
                         isSelected = date == selectedDate,
                         isToday = date == LocalDate.now(),
-                        onClick = { onDateSelected(date) }
+                        onClick = { onDateSelected(date) },
+                        onLongClick = { onDateLongClick(date) }
                     )
                 } else {
                     Box(modifier = Modifier.aspectRatio(1f))
@@ -91,13 +103,18 @@ fun CalendarView(
  * 星期标题行
  */
 @Composable
-private fun WeekDayHeader() {
+private fun WeekDayHeader(weekStartDay: DayOfWeek = DayOfWeek.MONDAY) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 8.dp)
     ) {
-        val weekDays = listOf("日", "一", "二", "三", "四", "五", "六")
+        val weekDays = when (weekStartDay) {
+            DayOfWeek.SUNDAY -> listOf("日", "一", "二", "三", "四", "五", "六")
+            DayOfWeek.MONDAY -> listOf("一", "二", "三", "四", "五", "六", "日")
+            else -> listOf("一", "二", "三", "四", "五", "六", "日") // 默认周一开始
+        }
+        
         weekDays.forEach { day ->
             Text(
                 text = day,
@@ -117,18 +134,23 @@ private fun WeekDayHeader() {
 /**
  * 日期单元格
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DayCell(
     date: LocalDate,
     schedule: Schedule?,
     isSelected: Boolean,
     isToday: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongClick: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier
             .aspectRatio(1f)
-            .clickable { onClick() },
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            ),
         colors = CardDefaults.cardColors(
             containerColor = when {
                 isSelected -> MaterialTheme.colorScheme.primaryContainer

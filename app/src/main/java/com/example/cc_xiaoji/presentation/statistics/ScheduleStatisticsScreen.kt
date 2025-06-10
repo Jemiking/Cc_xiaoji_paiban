@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.cc_xiaoji.domain.model.Shift
+import com.example.cc_xiaoji.presentation.components.DateRangePickerDialog
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -38,6 +39,20 @@ fun ScheduleStatisticsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val statistics by viewModel.statistics.collectAsStateWithLifecycle()
     val shifts by viewModel.shifts.collectAsStateWithLifecycle()
+    
+    // 日期选择器状态
+    var showDateRangePicker by remember { mutableStateOf(false) }
+    
+    // 日期范围选择器
+    DateRangePickerDialog(
+        showDialog = showDateRangePicker,
+        initialStartDate = uiState.customStartDate,
+        initialEndDate = uiState.customEndDate,
+        onDateRangeSelected = { start, end ->
+            viewModel.updateCustomDateRange(start, end)
+        },
+        onDismiss = { showDateRangePicker = false }
+    )
     
     Scaffold(
         topBar = {
@@ -70,7 +85,8 @@ fun ScheduleStatisticsScreen(
                     customStartDate = uiState.customStartDate,
                     customEndDate = uiState.customEndDate,
                     onRangeChange = viewModel::updateTimeRange,
-                    onCustomDateChange = viewModel::updateCustomDateRange
+                    onCustomDateChange = viewModel::updateCustomDateRange,
+                    onCustomDateClick = { showDateRangePicker = true }
                 )
             }
             
@@ -129,7 +145,8 @@ private fun TimeRangeSelector(
     customStartDate: LocalDate,
     customEndDate: LocalDate,
     onRangeChange: (TimeRange) -> Unit,
-    onCustomDateChange: (LocalDate, LocalDate) -> Unit
+    onCustomDateChange: (LocalDate, LocalDate) -> Unit,
+    onCustomDateClick: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth()
@@ -179,7 +196,8 @@ private fun TimeRangeSelector(
                     DateCard(
                         label = "开始日期",
                         date = customStartDate,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        onClick = onCustomDateClick
                     )
                     
                     Text("至", style = MaterialTheme.typography.bodyMedium)
@@ -187,7 +205,8 @@ private fun TimeRangeSelector(
                     DateCard(
                         label = "结束日期",
                         date = customEndDate,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        onClick = onCustomDateClick
                     )
                 }
             }
@@ -202,10 +221,12 @@ private fun TimeRangeSelector(
 private fun DateCard(
     label: String,
     date: LocalDate,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
 ) {
     OutlinedCard(
-        modifier = modifier
+        modifier = modifier,
+        onClick = onClick ?: {}
     ) {
         Column(
             modifier = Modifier.padding(12.dp),

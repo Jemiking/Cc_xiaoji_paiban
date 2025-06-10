@@ -1,5 +1,8 @@
 package com.example.cc_xiaoji.presentation.settings
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -9,10 +12,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.cc_xiaoji.presentation.components.TimePickerDialog
+import java.time.DayOfWeek
 
 /**
  * 设置界面
@@ -26,6 +32,140 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    var showTimePickerDialog by remember { mutableStateOf(false) }
+    var showClearDataDialog by remember { mutableStateOf(false) }
+    var showBackupLocationDialog by remember { mutableStateOf(false) }
+    var showWeekStartDayDialog by remember { mutableStateOf(false) }
+    
+    // 备份文件选择器
+    val backupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri: Uri? ->
+        uri?.let { 
+            viewModel.performBackup(it)
+        }
+    }
+    
+    // 恢复文件选择器
+    val restoreLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let {
+            viewModel.restoreDatabase(it)
+        }
+    }
+    
+    // 时间选择器对话框
+    TimePickerDialog(
+        showDialog = showTimePickerDialog,
+        initialTime = uiState.notificationTime,
+        onTimeSelected = { time ->
+            viewModel.updateNotificationTime(time)
+        },
+        onDismiss = { showTimePickerDialog = false }
+    )
+    
+    // 一周起始日选择对话框
+    if (showWeekStartDayDialog) {
+        AlertDialog(
+            onDismissRequest = { showWeekStartDayDialog = false },
+            title = {
+                Text("选择每周起始日")
+            },
+            text = {
+                Column {
+                    val weekDays = listOf(
+                        DayOfWeek.MONDAY to "星期一",
+                        DayOfWeek.SUNDAY to "星期日"
+                    )
+                    
+                    weekDays.forEach { (dayOfWeek, displayName) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.setWeekStartDay(dayOfWeek)
+                                    showWeekStartDayDialog = false
+                                }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = uiState.weekStartDayValue == dayOfWeek,
+                                onClick = {
+                                    viewModel.setWeekStartDay(dayOfWeek)
+                                    showWeekStartDayDialog = false
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(displayName)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { showWeekStartDayDialog = false }
+                ) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+    
+    // 清除数据确认对话框
+    if (showClearDataDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearDataDialog = false },
+            title = { Text("确认清除所有数据") },
+            text = { Text("此操作将删除所有班次和排班数据，且无法恢复。是否确定继续？") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.clearAllData()
+                        showClearDataDialog = false
+                    }
+                ) {
+                    Text("确定", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearDataDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+    
+    // 备份位置选择对话框
+    if (showBackupLocationDialog) {
+        AlertDialog(
+            onDismissRequest = { showBackupLocationDialog = false },
+            title = { Text("选择备份位置") },
+            text = { Text("请选择备份文件的保存位置") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        backupLauncher.launch("schedule_backup_${System.currentTimeMillis()}.db")
+                        showBackupLocationDialog = false
+                    }
+                ) {
+                    Text("选择外部存储")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.performBackup(null)
+                        showBackupLocationDialog = false
+                    }
+                ) {
+                    Text("备份到应用内部")
+                }
+            }
+        )
+    }
     
     Scaffold(
         topBar = {
@@ -80,7 +220,9 @@ fun SettingsScreen(
                     subtitle = uiState.notificationTime,
                     enabled = uiState.notificationEnabled,
                     onClick = {
-                        // TODO: 显示时间选择器
+                        if (uiState.notificationEnabled) {
+                            showTimePickerDialog = true
+                        }
                     }
                 )
             }
@@ -91,14 +233,14 @@ fun SettingsScreen(
                     title = "每周起始日",
                     subtitle = uiState.weekStartDay,
                     onClick = {
-                        // TODO: 显示星期选择对话框
+                        showWeekStartDayDialog = true
                     }
                 )
             }
             
             // 数据管理
             item {
-                Divider(modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 SettingsCategoryHeader("数据管理")
             }
             
@@ -122,7 +264,7 @@ fun SettingsScreen(
                     title = "立即备份",
                     subtitle = uiState.lastBackupTime?.let { "上次备份: $it" } ?: "从未备份",
                     onClick = {
-                        viewModel.performBackup()
+                        showBackupLocationDialog = true
                     }
                 )
             }
@@ -133,7 +275,7 @@ fun SettingsScreen(
                     title = "恢复数据",
                     subtitle = "从备份文件恢复数据",
                     onClick = {
-                        // TODO: 显示文件选择器
+                        restoreLauncher.launch(arrayOf("application/octet-stream", "*/*"))
                     }
                 )
             }
@@ -144,14 +286,14 @@ fun SettingsScreen(
                     title = "清除所有数据",
                     subtitle = "删除所有班次和排班数据",
                     onClick = {
-                        // TODO: 显示确认对话框
+                        showClearDataDialog = true
                     }
                 )
             }
             
             // 外观
             item {
-                Divider(modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 SettingsCategoryHeader("外观")
             }
             
@@ -159,15 +301,14 @@ fun SettingsScreen(
                 SettingsItem(
                     icon = Icons.Default.DarkMode,
                     title = "深色模式",
-                    subtitle = when (uiState.darkMode) {
-                        DarkModeOption.SYSTEM -> "跟随系统"
-                        DarkModeOption.LIGHT -> "关闭"
-                        DarkModeOption.DARK -> "开启"
-                    },
-                    onClick = {
-                        // TODO: 显示深色模式选择对话框
-                    }
-                )
+                    subtitle = if (uiState.isDarkMode) "已开启" else "已关闭",
+                    onClick = { }
+                ) {
+                    Switch(
+                        checked = uiState.isDarkMode,
+                        onCheckedChange = { viewModel.toggleDarkMode() }
+                    )
+                }
             }
             
             item {
@@ -183,7 +324,7 @@ fun SettingsScreen(
             
             // 关于
             item {
-                Divider(modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 SettingsCategoryHeader("关于")
             }
             

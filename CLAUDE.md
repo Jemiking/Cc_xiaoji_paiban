@@ -2,7 +2,55 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 🚀 项目开发进度 (2025-06-09)
+## 🚀 项目开发进度 (2025-06-10)
+
+### 🎉 最新完成功能
+1. **导出历史持久化存储**
+   - 创建 ExportHistoryEntity 实体
+   - 实现 ExportHistoryDao
+   - 数据库版本升级（v1 → v2）
+   - ExportViewModel 集成历史记录功能
+
+2. **深色模式切换**
+   - 创建 ThemeManager 使用 DataStore 持久化
+   - MainActivity 集成主题切换
+   - SettingsViewModel 支持主题切换
+   - UI 实时响应主题变化
+
+3. **数据备份恢复功能**
+   - BackupDatabaseUseCase - 备份到内部/外部存储
+   - RestoreDatabaseUseCase - 从文件恢复数据库
+   - ClearAllDataUseCase - 清除所有数据
+   - 文件选择器集成
+   - 确认对话框和进度显示
+
+4. **班次快速选择功能**
+   - 创建 QuickShiftSelector 底部对话框组件
+   - GetQuickShiftsUseCase - 获取常用班次
+   - CalendarView 支持长按日期触发快速选择
+   - CalendarViewModel 集成快速选择逻辑
+   - 支持快速创建/删除排班
+
+5. **自定义排班模式**
+   - 实现 CustomPatternSection UI 组件
+   - 支持为每一天单独设置班次
+   - 自动根据日期范围生成配置
+   - 日期范围改变时自动更新配置
+   - 与 CreateScheduleUseCase 完整集成
+
+6. **关于页面**
+   - 创建 AboutScreen 组件
+   - 应用信息、功能介绍、技术信息展示
+   - 支持反馈邮件和应用分享功能
+   - 与设置页面完整集成导航
+   - 修复过时的 Divider 组件
+
+7. **周起始日设置功能**
+   - 扩展 ThemeManager 支持周起始日设置
+   - 在 SettingsScreen 中实现选择对话框
+   - CalendarView 支持动态调整一周开始日
+   - 支持周一/周日开始的日历显示
+   - 使用 DataStore 持久化存储设置
 
 ### ✅ 已完成功能
 
@@ -35,7 +83,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - 单次排班模式
   - 周循环模式
   - 轮班模式（支持休息日设置）
-  - 自定义模式（UI已完成，逻辑待实现）
+  - 自定义模式（完整功能已实现）
   
 - **统计分析** (`ScheduleStatisticsScreen`)
   - 时间范围选择（本周/本月/上月/自定义）
@@ -49,25 +97,44 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - JSON格式（程序处理）
   - 统计报表格式（人工阅读）
   - 文件分享功能
-  - 导出历史记录
+  - 导出历史记录（持久化存储已实现）
   
 - **设置页面** (`SettingsScreen`)
   - 通用设置（通知、提醒时间、周起始日）
-  - 数据管理（备份、恢复、清除）
-  - 外观设置（深色模式、主题颜色）
-  - 关于信息
+  - 数据管理（备份、恢复、清除 - 完整功能已实现）
+  - 外观设置（深色模式 - 完整功能已实现）
+  - 关于信息（完整功能已实现）
+
+- **通知系统** (`notification/`)
+  - 排班提醒通知调度器（`ScheduleNotificationScheduler`）
+  - 每日定时提醒功能（使用 WorkManager）
+  - 测试通知功能
+  - 支持自定义提醒时间
+
+- **UI组件库** (`components/`)
+  - DatePickerDialog - 单日期选择对话框
+  - DateRangePickerDialog - 日期范围选择对话框
+  - TimePickerDialog - 24小时制时间选择器
+  - QuickShiftSelector - 班次快速选择底部对话框
 
 #### 3. 数据层实现
 - `ShiftEntity` - 班次数据表
 - `ScheduleEntity` - 排班数据表
-- `ShiftDao` / `ScheduleDao` - 数据访问对象
+- `ExportHistoryEntity` - 导出历史数据表
+- `ShiftDao` / `ScheduleDao` / `ExportHistoryDao` - 数据访问对象
 - `ScheduleRepository` - 仓库模式实现
 - TypeConverter - 时间类型转换
+- 数据库迁移（版本1到版本2）
 
 #### 4. 业务逻辑层
 - 所有必要的 UseCase 已实现
 - 领域模型定义完整
 - 业务规则封装良好
+- 新增 UseCase：
+  - GetQuickShiftsUseCase - 获取常用班次
+  - BackupDatabaseUseCase - 数据库备份
+  - RestoreDatabaseUseCase - 数据库恢复
+  - ClearAllDataUseCase - 清除所有数据
 
 ### 🔧 已解决的技术问题
 1. 应用启动时的加载循环问题
@@ -79,18 +146,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 7. Hilt 导入路径错误
 8. 网络依赖下载失败（添加阿里云镜像）
 9. 各种类型推断和枚举引用问题
+10. WorkManager 与 Hilt 的集成配置
 
 ### 📋 待完成功能（优先级排序）
-1. **中优先级**
-   - 排班提醒通知功能实现
-   - 日期选择器对话框
-   - 时间选择器对话框
-   
-2. **低优先级**
-   - 班次快速选择功能
-   - 数据备份恢复功能的完整实现
-   - 深色模式的实际切换
-   - 自定义排班模式的逻辑实现
+1. **低优先级**
    - 应用分享和评价功能
 
 ### 🏗️ 项目结构
@@ -108,7 +167,7 @@ app/src/main/java/com/example/cc_xiaoji/
 │   └── usecase/
 ├── presentation/
 │   ├── calendar/
-│   ├── edit/
+│   ├── components/    # 日期/时间选择器等通用组件
 │   ├── export/
 │   ├── navigation/
 │   ├── pattern/
@@ -117,15 +176,18 @@ app/src/main/java/com/example/cc_xiaoji/
 │   ├── shift/
 │   ├── statistics/
 │   └── viewmodel/
+├── notification/      # 通知调度和工作器
+├── di/               # Hilt依赖注入模块
 ├── MainActivity.kt
 └── ScheduleApplication.kt
 ```
 
 ### 💡 开发建议
 1. 下次开发可以从待完成功能列表继续
-2. 所有核心功能已经可以正常使用
+2. 所有核心功能已经可以正常使用，包括通知系统
 3. 建议先进行整体测试，确保功能正常
 4. 可以考虑添加单元测试和UI测试
+5. 建议提交最新的notification和components文件夹到git仓库
 
 ## Important: Development Workflow
 **Claude Code should NOT attempt to compile or build the project after making changes.**
