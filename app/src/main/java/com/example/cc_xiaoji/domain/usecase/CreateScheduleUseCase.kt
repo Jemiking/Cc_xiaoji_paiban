@@ -36,8 +36,12 @@ class CreateScheduleUseCase @Inject constructor(
             is SchedulePattern.Single -> {
                 handleSinglePattern(pattern)
             }
+            is SchedulePattern.Cycle -> {
+                handleCyclePattern(pattern)
+            }
             is SchedulePattern.Weekly -> {
-                handleWeeklyPattern(pattern)
+                // 将旧的 Weekly 转换为 Cycle 处理
+                handleCyclePattern(pattern.toCycle())
             }
             is SchedulePattern.Rotation -> {
                 handleRotationPattern(pattern)
@@ -79,6 +83,34 @@ class CreateScheduleUseCase @Inject constructor(
                 }
             }
             currentDate = currentDate.plusDays(1)
+        }
+        
+        repository.saveSchedules(schedules)
+    }
+    
+    /**
+     * 处理循环排班模式（支持任意天数周期）
+     */
+    private suspend fun handleCyclePattern(pattern: SchedulePattern.Cycle) {
+        if (pattern.cycleDays < 2 || pattern.cycleDays > 365) {
+            throw IllegalArgumentException("循环天数必须在2-365之间")
+        }
+        
+        val schedules = mutableListOf<Schedule>()
+        var currentDate = pattern.startDate
+        var dayInCycle = 0
+        
+        while (!currentDate.isAfter(pattern.endDate)) {
+            val shiftId = pattern.cyclePattern[dayInCycle]
+            if (shiftId != null) {
+                val shift = repository.getShiftById(shiftId)
+                if (shift != null) {
+                    schedules.add(Schedule(date = currentDate, shift = shift))
+                }
+            }
+            
+            currentDate = currentDate.plusDays(1)
+            dayInCycle = (dayInCycle + 1) % pattern.cycleDays
         }
         
         repository.saveSchedules(schedules)

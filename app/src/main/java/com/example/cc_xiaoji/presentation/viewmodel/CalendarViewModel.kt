@@ -6,6 +6,7 @@ import com.example.cc_xiaoji.domain.model.Schedule
 import com.example.cc_xiaoji.domain.model.ScheduleStatistics
 import com.example.cc_xiaoji.domain.model.Shift
 import com.example.cc_xiaoji.domain.usecase.CreateScheduleUseCase
+import com.example.cc_xiaoji.domain.usecase.DeleteScheduleUseCase
 import com.example.cc_xiaoji.domain.usecase.GetMonthScheduleUseCase
 import com.example.cc_xiaoji.domain.usecase.GetQuickShiftsUseCase
 import com.example.cc_xiaoji.domain.usecase.GetScheduleStatisticsUseCase
@@ -28,6 +29,7 @@ class CalendarViewModel @Inject constructor(
     private val getScheduleStatisticsUseCase: GetScheduleStatisticsUseCase,
     private val getQuickShiftsUseCase: GetQuickShiftsUseCase,
     private val createScheduleUseCase: CreateScheduleUseCase,
+    private val deleteScheduleUseCase: DeleteScheduleUseCase,
     private val themeManager: ThemeManager
 ) : ViewModel() {
     
@@ -76,6 +78,10 @@ class CalendarViewModel @Inject constructor(
             initialValue = DayOfWeek.MONDAY
         )
     
+    // 视图模式状态
+    private val _viewMode = MutableStateFlow(CalendarViewMode.COMPACT)
+    val viewMode: StateFlow<CalendarViewMode> = _viewMode.asStateFlow()
+    
     // UI状态
     private val _uiState = MutableStateFlow(CalendarUiState())
     val uiState: StateFlow<CalendarUiState> = _uiState.asStateFlow()
@@ -111,6 +117,16 @@ class CalendarViewModel @Inject constructor(
     fun navigateToToday() {
         _currentYearMonth.value = YearMonth.now()
         _selectedDate.value = LocalDate.now()
+        loadMonthlyStatistics()
+    }
+    
+    /**
+     * 切换到指定年月
+     */
+    fun navigateToYearMonth(yearMonth: YearMonth) {
+        _currentYearMonth.value = yearMonth
+        // 清除选中日期，避免显示错误的月份的日期
+        _selectedDate.value = null
         loadMonthlyStatistics()
     }
     
@@ -201,6 +217,42 @@ class CalendarViewModel @Inject constructor(
             }
         }
     }
+    
+    /**
+     * 切换视图模式
+     */
+    fun toggleViewMode() {
+        _viewMode.value = when (_viewMode.value) {
+            CalendarViewMode.COMFORTABLE -> CalendarViewMode.COMPACT
+            CalendarViewMode.COMPACT -> CalendarViewMode.COMFORTABLE
+        }
+    }
+    
+    /**
+     * 设置视图模式
+     */
+    fun setViewMode(mode: CalendarViewMode) {
+        _viewMode.value = mode
+    }
+    
+    /**
+     * 删除指定日期的排班
+     */
+    fun deleteSchedule(date: LocalDate) {
+        viewModelScope.launch {
+            try {
+                // 先获取该日期的排班
+                val schedule = schedules.value.find { it.date == date }
+                if (schedule != null) {
+                    deleteScheduleUseCase(schedule.id)
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = "删除排班失败：${e.message}"
+                )
+            }
+        }
+    }
 }
 
 /**
@@ -210,3 +262,11 @@ data class CalendarUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null
 )
+
+/**
+ * 日历视图模式
+ */
+enum class CalendarViewMode {
+    COMFORTABLE, // 舒适模式：较大的矩形格子，更多显示空间
+    COMPACT      // 紧凑模式：紧凑的正方形格子，显示更多日期
+}

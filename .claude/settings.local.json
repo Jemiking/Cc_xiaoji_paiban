@@ -6,7 +6,9 @@
       "Bash(mkdir:*)",
       "Bash(grep:*)",
       "Bash(rm:*)",
-      "Bash(./gradlew:*)"
+      "Bash(./gradlew:*)",
+      "Bash(gradle:*)",
+      "Bash(cmd.exe /c gradlew.bat :app:compileDebugKotlin)"
     ],
     "deny": []
   }

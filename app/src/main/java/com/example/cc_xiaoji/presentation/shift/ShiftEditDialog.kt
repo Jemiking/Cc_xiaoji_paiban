@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.example.cc_xiaoji.domain.model.Shift
 import com.example.cc_xiaoji.presentation.theme.*
+import com.example.cc_xiaoji.presentation.components.CustomTimePickerDialog
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
@@ -189,71 +190,25 @@ fun ShiftEditDialog(
     }
     
     // 时间选择器
-    if (showStartTimePicker) {
-        TimePickerDialog(
-            initialTime = startTime,
-            onTimeSelected = { time ->
-                startTime = time
-                showStartTimePicker = false
-            },
-            onDismiss = { showStartTimePicker = false }
-        )
-    }
-    
-    if (showEndTimePicker) {
-        TimePickerDialog(
-            initialTime = endTime,
-            onTimeSelected = { time ->
-                endTime = time
-                showEndTimePicker = false
-            },
-            onDismiss = { showEndTimePicker = false }
-        )
-    }
-}
-
-/**
- * 时间选择器对话框
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun TimePickerDialog(
-    initialTime: LocalTime,
-    onTimeSelected: (LocalTime) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val timePickerState = rememberTimePickerState(
-        initialHour = initialTime.hour,
-        initialMinute = initialTime.minute,
-        is24Hour = true
+    CustomTimePickerDialog(
+        showDialog = showStartTimePicker,
+        initialTime = startTime,
+        onTimeSelected = { time ->
+            startTime = time
+            showStartTimePicker = false
+        },
+        onDismiss = { showStartTimePicker = false }
     )
     
-    Dialog(onDismissRequest = onDismiss) {
-        Card {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                TimePicker(state = timePickerState)
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("取消")
-                    }
-                    TextButton(
-                        onClick = {
-                            onTimeSelected(
-                                LocalTime.of(timePickerState.hour, timePickerState.minute)
-                            )
-                        }
-                    ) {
-                        Text("确定")
-                    }
-                }
-            }
-        }
-    }
+    CustomTimePickerDialog(
+        showDialog = showEndTimePicker,
+        initialTime = endTime,
+        onTimeSelected = { time ->
+            endTime = time
+            showEndTimePicker = false
+        },
+        onDismiss = { showEndTimePicker = false }
+    )
 }
+
+// 旧的时间选择器已被 CustomTimePickerDialog 替代

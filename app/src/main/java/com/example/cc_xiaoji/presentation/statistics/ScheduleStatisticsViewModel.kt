@@ -6,6 +6,7 @@ import com.example.cc_xiaoji.domain.model.ScheduleStatistics
 import com.example.cc_xiaoji.domain.model.Shift
 import com.example.cc_xiaoji.domain.usecase.GetActiveShiftsUseCase
 import com.example.cc_xiaoji.domain.usecase.GetStatisticsUseCase
+import com.example.cc_xiaoji.presentation.theme.ThemeManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -21,7 +22,8 @@ import javax.inject.Inject
 @HiltViewModel
 class ScheduleStatisticsViewModel @Inject constructor(
     private val getStatisticsUseCase: GetStatisticsUseCase,
-    private val getActiveShiftsUseCase: GetActiveShiftsUseCase
+    private val getActiveShiftsUseCase: GetActiveShiftsUseCase,
+    private val themeManager: ThemeManager
 ) : ViewModel() {
     
     // UI状态
@@ -38,6 +40,14 @@ class ScheduleStatisticsViewModel @Inject constructor(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
+        )
+    
+    // 周起始日设置
+    val weekStartDay: StateFlow<DayOfWeek> = themeManager.weekStartDay
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = DayOfWeek.MONDAY
         )
     
     init {

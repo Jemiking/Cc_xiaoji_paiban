@@ -1,5 +1,50 @@
 # 开发日志 - CC小记排班模块
 
+## 2025-06-11 开发记录
+
+### 日期选择器改进
+
+#### 1. Material3 DatePicker 星期显示问题
+**问题**: 批量排班界面的日期选择器中，星期标题只显示"星"字
+**原因**: Material3 DatePicker 使用系统本地化字符串，在中文环境下被截断
+**尝试方案**:
+- 自定义星期标题（位置错误）
+- 密度调整（无效）
+- DisplayMode 修改（无效）
+**最终解决**: 创建基于 CalendarView 的 CustomDatePickerDialog
+
+#### 2. 日期选择器美化
+**尝试方案**:
+- 方案四（卡片堆叠风格）- 效果不理想
+- 方案一（Material You 风格）- 成功实施
+**改进内容**:
+- 大圆角卡片设计
+- Tonal 风格按钮
+- Surface 层次感
+- 统一的色彩系统
+
+#### 3. 格子尺寸优化
+**问题**: 日期选择器格子太小，不便点击
+**解决**: 创建 PickerCalendarView 组件
+- 固定格子高度 48dp
+- 字体大小 18sp
+- 优化点击区域
+- 保持 Material You 风格
+
+#### 4. 项目日期选择器统一规划
+**现状分析**:
+- CustomDatePickerDialog（已完成）：批量排班界面
+- DateRangePickerDialog（待改进）：统计、导出界面
+- YearMonthPickerDialog（待改进）：日历主界面
+- TimePickerDialog（待改进）：班次编辑
+**创建文档**: DATE_PICKER_IMPROVEMENT.md 记录改进方案
+
+### 技术要点
+- 使用 DialogProperties(usePlatformDefaultWidth = false) 自定义对话框宽度
+- FilledTonalButton/FilledTonalIconButton 实现 Material You 风格
+- 固定高度布局避免内容跳动
+- 复用现有组件提高开发效率
+
 ## 2025-06-09 开发记录
 
 ### 项目初始化
@@ -48,6 +93,57 @@
 **问题**: Repository 中的 Flow 导致无限加载
 **原因**: 使用 collect() 而不是 first()
 **解决**: 将 collect() 改为 first() 获取单次数据
+
+## 2025-06-10 开发记录
+
+### 日历视图模式功能
+实现了日历的舒适/紧凑两种视图模式切换：
+
+1. **视图模式设计**
+   - **紧凑模式**：正方形格子，较小间距，适合查看更多日期信息
+   - **舒适模式**：矩形格子（高度是宽度的2倍），更大的内容显示空间
+   - 两种模式都保留统计信息显示
+
+2. **参数调整**
+   - 紧凑模式：6dp间距，8dp边距，titleMedium字体
+   - 舒适模式：4dp间距，6dp边距，headlineMedium字体
+   - 通过减小间距让舒适模式格子实际更大
+
+3. **选中日期详情卡片**
+   - 在紧凑模式下利用月视图下方空白区域
+   - 显示完整日期、星期、班次详情
+   - 提供快速编辑和删除操作按钮
+   - 无排班时显示提示信息
+
+### 技术要点
+- 使用 `aspectRatio` 控制格子宽高比
+- 默认以紧凑模式打开，提供更好的初始体验
+- 删除功能集成到 CalendarViewModel 中
+
+### 任意天数循环排班功能
+实现了支持任意天数（2-365天）的循环排班模式：
+
+1. **数据结构改进**
+   - 新增 `SchedulePattern.Cycle` 模式，支持任意天数循环
+   - 保留 `Weekly` 模式并标记为废弃，确保向后兼容
+   - 循环模式使用 `Map<Int, Long?>` 存储每天的班次
+
+2. **UI 功能增强**
+   - 将"周循环"改为"循环排班"
+   - 提供常用周期快捷选择（3天、4天、5天、7天）
+   - 支持自定义输入 2-30 天的循环周期
+   - 动态生成对应天数的班次选择界面
+
+3. **业务逻辑更新**
+   - `CreateScheduleUseCase` 新增 `handleCyclePattern` 方法
+   - 支持将旧的 Weekly 模式自动转换为 Cycle 模式
+   - 循环计算使用模运算确保正确循环
+
+### 应用场景
+- 4天工作制（做四休三）
+- 5天工作制（周一到周五）
+- 三班倒（3天或6天周期）
+- 其他特殊行业的轮班需求
 
 #### 4. CreateScheduleUseCase 调用错误
 **问题**: 编译错误 "Unresolved reference"

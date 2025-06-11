@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.cc_xiaoji.domain.model.Shift
-import com.example.cc_xiaoji.presentation.components.DateRangePickerDialog
+import com.example.cc_xiaoji.presentation.components.CustomDateRangePickerDialog
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -39,19 +39,21 @@ fun ScheduleStatisticsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val statistics by viewModel.statistics.collectAsStateWithLifecycle()
     val shifts by viewModel.shifts.collectAsStateWithLifecycle()
+    val weekStartDay by viewModel.weekStartDay.collectAsStateWithLifecycle()
     
     // 日期选择器状态
     var showDateRangePicker by remember { mutableStateOf(false) }
     
     // 日期范围选择器
-    DateRangePickerDialog(
+    CustomDateRangePickerDialog(
         showDialog = showDateRangePicker,
         initialStartDate = uiState.customStartDate,
         initialEndDate = uiState.customEndDate,
         onDateRangeSelected = { start, end ->
             viewModel.updateCustomDateRange(start, end)
         },
-        onDismiss = { showDateRangePicker = false }
+        onDismiss = { showDateRangePicker = false },
+        weekStartDay = weekStartDay
     )
     
     Scaffold(

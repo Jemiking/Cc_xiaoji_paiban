@@ -7,11 +7,14 @@ import com.example.cc_xiaoji.data.local.dao.ExportHistoryDao
 import com.example.cc_xiaoji.data.local.entity.ExportHistoryEntity
 import com.example.cc_xiaoji.domain.usecase.ExportScheduleDataUseCase
 import com.example.cc_xiaoji.presentation.statistics.TimeRange
+import com.example.cc_xiaoji.presentation.theme.ThemeManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
@@ -29,12 +32,21 @@ import javax.inject.Inject
 @HiltViewModel
 class ExportViewModel @Inject constructor(
     private val exportScheduleDataUseCase: ExportScheduleDataUseCase,
-    private val exportHistoryDao: ExportHistoryDao
+    private val exportHistoryDao: ExportHistoryDao,
+    private val themeManager: ThemeManager
 ) : ViewModel() {
     
     // UI状态
     private val _uiState = MutableStateFlow(ExportUiState())
     val uiState: StateFlow<ExportUiState> = _uiState.asStateFlow()
+    
+    // 周起始日设置
+    val weekStartDay: StateFlow<DayOfWeek> = themeManager.weekStartDay
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = DayOfWeek.MONDAY
+        )
     
     init {
         // 加载导出历史

@@ -8,7 +8,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.cc_xiaoji.domain.model.Shift
 import com.example.cc_xiaoji.presentation.components.DatePickerDialog
+import com.example.cc_xiaoji.presentation.components.CustomDatePickerDialog
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -38,6 +41,7 @@ fun SchedulePatternScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val shifts by viewModel.shifts.collectAsState()
+    val weekStartDay by viewModel.weekStartDay.collectAsState()
     
     // 日期选择器状态
     var showStartDatePicker by remember { mutableStateOf(false) }
@@ -102,12 +106,14 @@ fun SchedulePatternScreen(
                         )
                     }
                 }
-                PatternType.WEEKLY -> {
+                PatternType.CYCLE -> {
                     item {
-                        WeeklyPatternSection(
+                        CyclePatternSection(
                             shifts = shifts,
-                            weekPattern = uiState.weekPattern,
-                            onPatternChange = viewModel::updateWeekPattern
+                            cycleDays = uiState.cycleDays,
+                            cyclePattern = uiState.cyclePattern,
+                            onCycleDaysChange = viewModel::updateCycleDays,
+                            onPatternChange = viewModel::updateCyclePattern
                         )
                     }
                 }
@@ -146,26 +152,28 @@ fun SchedulePatternScreen(
         }
     }
     
-    // 开始日期选择器
-    DatePickerDialog(
+    // 开始日期选择器 - 使用自定义日期选择器
+    CustomDatePickerDialog(
         showDialog = showStartDatePicker,
         initialDate = uiState.startDate,
         onDateSelected = {
             viewModel.updateStartDate(it)
             showStartDatePicker = false
         },
-        onDismiss = { showStartDatePicker = false }
+        onDismiss = { showStartDatePicker = false },
+        weekStartDay = weekStartDay
     )
     
-    // 结束日期选择器
-    DatePickerDialog(
+    // 结束日期选择器 - 使用自定义日期选择器
+    CustomDatePickerDialog(
         showDialog = showEndDatePicker,
         initialDate = uiState.endDate,
         onDateSelected = {
             viewModel.updateEndDate(it)
             showEndDatePicker = false
         },
-        onDismiss = { showEndDatePicker = false }
+        onDismiss = { showEndDatePicker = false },
+        weekStartDay = weekStartDay
     )
     
     // 显示成功状态
@@ -346,8 +354,136 @@ private fun SinglePatternSection(
 }
 
 /**
- * 周循环配置部分
+ * 循环排班配置部分（支持任意天数）
  */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CyclePatternSection(
+    shifts: List<Shift>,
+    cycleDays: Int,
+    cyclePattern: Map<Int, Long?>,
+    onCycleDaysChange: (Int) -> Unit,
+    onPatternChange: (Int, Long?) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                "循环排班设置",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            
+            // 循环天数选择
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "循环周期设置",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "循环天数",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // 减少按钮
+                        OutlinedIconButton(
+                            onClick = { 
+                                if (cycleDays > 2) onCycleDaysChange(cycleDays - 1) 
+                            },
+                            enabled = cycleDays > 2,
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Remove,
+                                contentDescription = "减少天数"
+                            )
+                        }
+                        
+                        // 显示当前天数
+                        Surface(
+                            modifier = Modifier
+                                .widthIn(min = 60.dp)
+                                .height(40.dp),
+                            shape = MaterialTheme.shapes.small,
+                            color = MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "${cycleDays}天",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                        
+                        // 增加按钮
+                        OutlinedIconButton(
+                            onClick = { 
+                                if (cycleDays < 365) onCycleDaysChange(cycleDays + 1) 
+                            },
+                            enabled = cycleDays < 365,
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "增加天数"
+                            )
+                        }
+                    }
+                }
+                
+                // 支持范围提示
+                Text(
+                    "支持 2-365 天的任意循环周期",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            HorizontalDivider()
+            
+            // 每天的班次选择
+            (0 until cycleDays).forEach { dayIndex ->
+                CycleDayShiftSelector(
+                    dayIndex = dayIndex,
+                    cycleDays = cycleDays,
+                    shifts = shifts,
+                    selectedShiftId = cyclePattern[dayIndex],
+                    onShiftSelect = { shiftId ->
+                        onPatternChange(dayIndex, shiftId)
+                    }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 周循环配置部分（已废弃，保留以兼容）
+ */
+@Deprecated("使用 CyclePatternSection 代替")
 @Composable
 private fun WeeklyPatternSection(
     shifts: List<Shift>,
@@ -455,6 +591,103 @@ private fun RotationPatternSection(
                         Text("+")
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * 循环天班次选择器
+ */
+@Composable
+private fun CycleDayShiftSelector(
+    dayIndex: Int,
+    cycleDays: Int,
+    shifts: List<Shift>,
+    selectedShiftId: Long?,
+    onShiftSelect: (Long?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedShift = shifts.find { it.id == selectedShiftId }
+    
+    OutlinedCard(
+        onClick = { expanded = true },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "第 ${dayIndex + 1} 天",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            
+            if (selectedShift != null) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(16.dp)
+                            .background(
+                                Color(selectedShift.color),
+                                shape = MaterialTheme.shapes.small
+                            )
+                    )
+                    Text(
+                        selectedShift.name,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            } else {
+                Text(
+                    "休息",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text("休息") },
+                onClick = {
+                    onShiftSelect(null)
+                    expanded = false
+                }
+            )
+            
+            shifts.forEach { shift ->
+                DropdownMenuItem(
+                    text = {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .background(
+                                        Color(shift.color),
+                                        shape = MaterialTheme.shapes.small
+                                    )
+                            )
+                            Text(shift.name)
+                        }
+                    },
+                    onClick = {
+                        onShiftSelect(shift.id)
+                        expanded = false
+                    }
+                )
             }
         }
     }

@@ -2,10 +2,30 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 🚀 项目开发进度 (2025-06-10)
+## 🚀 项目开发进度 (2025-06-11)
 
 ### 🎉 最新完成功能
-1. **导出历史持久化存储**
+
+1. **日期选择器全面改进** (2025-06-11) ✅ 全部完成
+   - 解决 Material3 DatePicker 星期显示不全问题
+   - 创建四个自定义选择器组件，统一采用 Material You 风格：
+     - CustomDatePickerDialog - 单日期选择器
+     - CustomDateRangePickerDialog - 日期范围选择器（两步选择）
+     - CustomYearMonthPickerDialog - 年月选择器（网格布局）
+     - CustomTimePickerDialog - 时间选择器（Material3 时钟）
+   - 优化触控体验（48dp 最小点击区域）
+   - 替换项目中所有日期/时间选择器
+   - 创建 DATE_PICKER_IMPROVEMENT.md 文档记录改进方案
+
+2. **主页面状态栏优化**
+   - 移除月份导航按钮（上一月/下一月）
+   - 实现左右滑动手势切换月份（150像素阈值）
+   - 次要功能整合到溢出菜单（视图切换、统计、批量排班、设置）
+   - 年月标题支持点击快速跳转
+   - "今天"按钮改为文字"今"图标
+   - FAB仅在舒适模式显示，避免与紧凑模式详情卡片功能重复
+
+2. **导出历史持久化存储**
    - 创建 ExportHistoryEntity 实体
    - 实现 ExportHistoryDao
    - 数据库版本升级（v1 → v2）
@@ -52,6 +72,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    - 支持周一/周日开始的日历显示
    - 使用 DataStore 持久化存储设置
 
+8. **日历视图模式切换**
+   - 实现舒适/紧凑两种视图模式
+   - 紧凑模式：正方形格子，小间距，默认模式
+   - 舒适模式：矩形格子（2:1高宽比），大字体
+   - 两种模式都保留统计信息显示
+   - 紧凑模式下新增选中日期详情卡片
+
+9. **任意天数循环排班**
+   - 扩展周循环为支持 2-365 天的任意循环
+   - 新增 SchedulePattern.Cycle 模式
+   - 使用步进器（+/-按钮）灵活调整循环天数
+   - 无预设限制，真正支持任意天数
+   - 适配各种特殊工作制需求
+
+10. **主页面状态栏优化**
+   - 移除月份导航按钮（上一月/下一月）
+   - 实现左右滑动手势切换月份（150像素阈值）
+   - 次要功能整合到溢出菜单（视图切换、统计、批量排班、设置）
+   - 年月标题支持点击快速跳转
+   - "今天"按钮改为文字"今"图标
+   - FAB仅在舒适模式显示，避免与紧凑模式详情卡片功能重复
+
 ### ✅ 已完成功能
 
 #### 1. 基础架构
@@ -67,6 +109,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - 排班状态标记
   - 快速导航（上月/下月/今天）
   - 月度统计信息显示
+  - 视图模式切换（舒适/紧凑）
+  - 选中日期详情卡片（紧凑模式）
   
 - **班次管理** (`ShiftManageScreen`)
   - 班次列表展示
@@ -81,7 +125,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   
 - **批量排班** (`SchedulePatternScreen`)
   - 单次排班模式
-  - 周循环模式
+  - 循环排班模式（支持2-365天任意周期）
   - 轮班模式（支持休息日设置）
   - 自定义模式（完整功能已实现）
   
@@ -112,9 +156,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - 支持自定义提醒时间
 
 - **UI组件库** (`components/`)
-  - DatePickerDialog - 单日期选择对话框
-  - DateRangePickerDialog - 日期范围选择对话框
-  - TimePickerDialog - 24小时制时间选择器
+  - CustomDatePickerDialog - Material You 风格单日期选择对话框
+  - CustomDateRangePickerDialog - Material You 风格日期范围选择对话框
+  - CustomYearMonthPickerDialog - Material You 风格年月选择对话框
+  - CustomTimePickerDialog - Material You 风格时间选择器
   - QuickShiftSelector - 班次快速选择底部对话框
 
 #### 3. 数据层实现
@@ -151,6 +196,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### 📋 待完成功能（优先级排序）
 1. **低优先级**
    - 应用分享和评价功能
+   - 性能优化和测试完善
 
 ### 🏗️ 项目结构
 ```
@@ -183,11 +229,11 @@ app/src/main/java/com/example/cc_xiaoji/
 ```
 
 ### 💡 开发建议
-1. 下次开发可以从待完成功能列表继续
-2. 所有核心功能已经可以正常使用，包括通知系统
-3. 建议先进行整体测试，确保功能正常
-4. 可以考虑添加单元测试和UI测试
-5. 建议提交最新的notification和components文件夹到git仓库
+1. 所有核心功能已经可以正常使用，包括通知系统和日期选择器
+2. 建议进行整体测试，确保功能正常
+3. 可以考虑添加单元测试和UI测试
+4. 建议提交最新的代码到 git 仓库，特别是 components 文件夹
+5. 下一步可以考虑性能优化和细节打磨
 
 ## Important: Development Workflow
 **Claude Code should NOT attempt to compile or build the project after making changes.**

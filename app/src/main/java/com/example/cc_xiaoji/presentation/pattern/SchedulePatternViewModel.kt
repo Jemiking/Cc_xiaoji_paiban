@@ -6,6 +6,7 @@ import com.example.cc_xiaoji.domain.model.SchedulePattern
 import com.example.cc_xiaoji.domain.model.Shift
 import com.example.cc_xiaoji.domain.usecase.CreateScheduleUseCase
 import com.example.cc_xiaoji.domain.usecase.GetActiveShiftsUseCase
+import com.example.cc_xiaoji.presentation.theme.ThemeManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -18,7 +19,7 @@ import javax.inject.Inject
  */
 enum class PatternType(val displayName: String) {
     SINGLE("单次排班"),
-    WEEKLY("周循环"),
+    CYCLE("循环排班"),  // 原 WEEKLY，现在支持任意天数循环
     ROTATION("轮班"),
     CUSTOM("自定义")
 }
@@ -29,7 +30,8 @@ enum class PatternType(val displayName: String) {
 @HiltViewModel
 class SchedulePatternViewModel @Inject constructor(
     private val getActiveShiftsUseCase: GetActiveShiftsUseCase,
-    private val createScheduleUseCase: CreateScheduleUseCase
+    private val createScheduleUseCase: CreateScheduleUseCase,
+    private val themeManager: ThemeManager
 ) : ViewModel() {
     
     // 班次列表
@@ -38,6 +40,14 @@ class SchedulePatternViewModel @Inject constructor(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
+        )
+    
+    // 周起始日设置
+    val weekStartDay: StateFlow<DayOfWeek> = themeManager.weekStartDay
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = DayOfWeek.MONDAY
         )
     
     // UI状态
@@ -97,12 +107,42 @@ class SchedulePatternViewModel @Inject constructor(
     }
     
     /**
-     * 更新周模式
+     * 更新周模式（已废弃，保留以兼容）
      */
     fun updateWeekPattern(dayOfWeek: DayOfWeek, shiftId: Long?) {
         _uiState.update { state ->
             state.copy(
                 weekPattern = state.weekPattern + (dayOfWeek to shiftId)
+            )
+        }
+    }
+    
+    /**
+     * 更新循环天数
+     */
+    fun updateCycleDays(days: Int) {
+        if (days in 2..365) {
+            _uiState.update { state ->
+                // 重新生成对应天数的模式Map
+                val newPattern = (0 until days).associateWith { index ->
+                    // 保留已有的设置（如果有）
+                    state.cyclePattern[index]
+                }
+                state.copy(
+                    cycleDays = days,
+                    cyclePattern = newPattern
+                )
+            }
+        }
+    }
+    
+    /**
+     * 更新循环模式中某一天的班次
+     */
+    fun updateCyclePattern(dayIndex: Int, shiftId: Long?) {
+        _uiState.update { state ->
+            state.copy(
+                cyclePattern = state.cyclePattern + (dayIndex to shiftId)
             )
         }
     }
@@ -180,14 +220,15 @@ class SchedulePatternViewModel @Inject constructor(
                         null // 已处理，返回null
                     }
                     
-                    PatternType.WEEKLY -> {
-                        if (state.weekPattern.values.all { it == null }) {
+                    PatternType.CYCLE -> {
+                        if (state.cyclePattern.values.all { it == null }) {
                             throw IllegalStateException("请至少设置一天的班次")
                         }
-                        SchedulePattern.Weekly(
+                        SchedulePattern.Cycle(
                             startDate = state.startDate,
                             endDate = state.endDate,
-                            weekPattern = state.weekPattern.filterValues { it != null }.mapValues { it.value!! }
+                            cycleDays = state.cycleDays,
+                            cyclePattern = state.cyclePattern.filterValues { it != null }.mapValues { it.value!! }
                         )
                     }
                     
@@ -244,8 +285,10 @@ data class SchedulePatternUiState(
     // 单次模式
     val selectedShift: Shift? = null,
     
-    // 周循环模式
-    val weekPattern: Map<DayOfWeek, Long?> = DayOfWeek.values().associateWith { null },
+    // 循环模式（原周循环模式）
+    val cycleDays: Int = 7, // 循环天数，默认7天
+    val cyclePattern: Map<Int, Long?> = (0 until 7).associateWith { null }, // 循环中每天的班次
+    val weekPattern: Map<DayOfWeek, Long?> = DayOfWeek.values().associateWith { null }, // 保留以兼容旧代码
     
     // 轮班模式
     val rotationShifts: List<Long> = emptyList(),
@@ -265,7 +308,7 @@ data class SchedulePatternUiState(
     val canCreate: Boolean
         get() = when (patternType) {
             PatternType.SINGLE -> selectedShift != null
-            PatternType.WEEKLY -> weekPattern.values.any { it != null }
+            PatternType.CYCLE -> cyclePattern.values.any { it != null }
             PatternType.ROTATION -> rotationShifts.isNotEmpty()
             PatternType.CUSTOM -> customPattern.isNotEmpty()
         }
